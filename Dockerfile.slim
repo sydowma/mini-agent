@@ -1,0 +1,49 @@
+# Multi-stage build for smaller image
+FROM python:3.12-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache \
+    build-base \
+    git
+
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+WORKDIR /app
+
+# Copy project files
+COPY pyproject.toml .
+COPY src/ ./src/
+
+# Build wheel
+RUN uv pip install --system build && \
+    python -m build --wheel
+
+# Production stage
+FROM python:3.12-alpine
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    ripgrep \
+    fd
+
+# Create non-root user
+RUN adduser -D -u 1000 agent
+
+WORKDIR /app
+
+# Copy wheel and install
+COPY --from=builder /app/dist/*.whl /tmp/
+RUN pip install --no-cache-dir /tmp/*.whl && rm /tmp/*.whl
+
+# Create directory for sessions
+RUN mkdir -p /home/agent/.mini-agent && chown -R agent:agent /home/agent/.mini-agent
+
+USER agent
+WORKDIR /workspace
+
+ENV PYTHONUNBUFFERED=1
+ENV OPENAI_API_KEY=""
+
+ENTRYPOINT ["mini-agent"]
+CMD ["--help"]

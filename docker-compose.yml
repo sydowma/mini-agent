@@ -1,0 +1,43 @@
+services:
+  mini-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mini-agent:latest
+    container_name: mini-agent
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
+    volumes:
+      # Mount workspace directory
+      - ./workspace:/workspace
+      # Persist sessions
+      - mini-agent-sessions:/home/agent/.mini-agent
+    working_dir: /workspace
+    command: ["--model", "gpt-4o"]
+    stdin_open: true
+    tty: true
+
+  # Development container with hot reload
+  mini-agent-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mini-agent:dev
+    container_name: mini-agent-dev
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
+    volumes:
+      - ./src:/app/src
+      - ./workspace:/workspace
+      - mini-agent-sessions:/home/agent/.mini-agent
+    working_dir: /workspace
+    command: ["--model", "gpt-4o"]
+    stdin_open: true
+    tty: true
+    profiles:
+      - dev
+
+volumes:
+  mini-agent-sessions:
